@@ -72,27 +72,28 @@ public:
         timestamp = getCurrentTimestamp();
     }
     void displayNote(bool decrypt = false) const {
-        if (password != "") {
-            string enteredPassword;
-            cout << "\nThis note is password-protected. Please enter the password: ";
-            cin >> enteredPassword;
-            if (enteredPassword != password) {
-                cout << "Incorrect Password. Please input correct password !" << endl;
-                return;
-            }
+    if (!password.empty()) {  // Check if the note is password-protected
+        string enteredPassword;
+        cout << "\nThis note is password-protected. Please enter the password: ";
+        cin >> enteredPassword;
+        if (enteredPassword != password) {
+            cout << "Incorrect Password. Cannot display the note." << endl;
+            return;
         }
-
-        string displayContent = (decrypt && isEncrypted) ? encryptDecrypt(content) : content;
-        cout << "\nTitle       : " << title << endl;
-        cout << "Content     : " << displayContent << endl;
-        cout << "Category    : " << category << endl;
-        cout << "Tags        : " << tags << endl;
-        cout << "Priority    : " << priority << endl;
-        cout << "Timestamp   : " << timestamp << endl;
-        cout << "\nPress Enter to return to the main menu...";
-        cin.ignore();
-        cin.get();
     }
+
+    string displayContent = (decrypt && isEncrypted) ? encryptDecrypt(content) : content;
+    cout << "\nTitle       : " << title << endl;
+    cout << "Content     : " << displayContent << endl;
+    cout << "Category    : " << category << endl;
+    cout << "Tags        : " << tags << endl;
+    cout << "Priority    : " << priority << endl;
+    cout << "Timestamp   : " << timestamp << endl;
+    cout << "\nPress Enter to return to the main menu...";
+    cin.ignore();
+    cin.get();
+}
+
 
     void editContent(string newContent) {
         content = newContent;
@@ -157,30 +158,84 @@ public:
         notes.push_back(note);
     }
 
-    void displayAllNotes(bool decrypt = false) const {
+   void displayAllNotes(bool decrypt = false) const {
+    clearScreen();
+    if (notes.empty()) {
+        cout << "\nNo Notes Available!" << endl;
+        return;
+    }
+    int i = 0;
+    while (i < notes.size()) {
         clearScreen();
-        if (notes.empty()) {
-            cout << "\nNo Notes Available!" << endl;
-            return;
-        }
         cout << "\nYour Notes (Sorted by Priority):\n";
         cout << "=================================\n";
-        for (size_t i = 0; i < notes.size(); ++i) {
-            cout << "[" << i + 1 << "] ";
-            notes[i].displayNote(decrypt);
-            cout << "---------------------------------" << endl;
-        }
-    }
-
-    void editNoteContent(int index, string newContent) {
-        if (index >= 0 && index < notes.size()) {
-            undoStack.push(notes);
-            notes[index].editContent(newContent);
-            cout << "\nNote Updated Successfully!" << endl;
+        cout << "[" << i + 1 << "] ";
+        notes[i].displayNote(decrypt);
+        
+        if (i == notes.size() - 1) {
+            cout << "\nThis is the last note." << endl;
+            cin.ignore();
+            cin.get();
+            break;  // Stop the loop after the last note
         } else {
-            cout << "\nInvalid Note Index!" << endl;
+            char option;
+            cout << "\nPress 'N' for Next Note or 'M' to return to the Main Menu: ";
+            cin >> option;
+            if (option == 'M' || option == 'm') {
+                break;  // Return to the main menu
+            } else if (option == 'N' || option == 'n') {
+                i++;  // Move to the next note
+            } else {
+                cout << "\nInvalid option. Returning to the main menu." << endl;
+                break;  // Invalid option, return to the main menu
+            }
         }
     }
+}
+
+
+ void editNoteContent(int index) {
+    if (index >= 0 && index < notes.size()) {
+        Note &noteToEdit = notes[index];
+
+        // Check if the note is encrypted
+        if (noteToEdit.getEncryptionStatus()) {
+            string enteredPassword;
+            cout << "\nThis note is password-protected. Please enter the password: ";
+            cin >> enteredPassword;
+
+            // Clear input buffer to handle newlines
+            cin.ignore();
+
+            // Verify password
+            if (enteredPassword != noteToEdit.getPassword()) {
+                cout << "Incorrect Password. Returning to main menu." << endl;
+                return;
+            }
+        }
+
+        // Prompt for new content
+        string newContent;
+        cout << "Enter New Content (Press Enter twice on an empty line to finish):" << endl;
+        string line;
+        newContent.clear();
+
+        // Collect the new content
+        while (true) {
+            getline(cin, line);
+            if (line.empty()) break;
+            newContent += line + '\n';
+        }
+
+        // Update the note with the new content
+        noteToEdit.editContent(newContent);
+        cout << "\nNote Updated Successfully!" << endl;
+    } else {
+        cout << "\nInvalid Note Index!" << endl;
+    }
+}
+
+
 
     void deleteNote(int index) {
         if (index >= 0 && index < notes.size()) {
@@ -257,47 +312,86 @@ public:
         }
     }
 
-    void saveToFile() const {
-        ofstream outFile("notes.txt");
-        for (const auto &note : notes) {
-            outFile <<"NOTE TITLE :" <<note.getTitle() << endl;
-            outFile <<"ENCRYPTED PASSWORD : "<< (note.getEncryptionStatus() ? encryptDecrypt(note.getContent()) : note.getContent()) << endl;
-            outFile <<"CATEGORY : "<< note.getCategory() << endl;
-            outFile <<"TAGS : "<< note.getTags() << endl;
-            outFile <<"PRIORITY : "<< note.getPriority() << endl;
-            outFile <<"SAVED ON : "<< note.getTimestamp() << endl;  // Save timestamp
-            outFile << "---" << endl;
-        }
-        outFile.close();
-        cout << "\nNotes Saved to File ! " << endl;
+void saveToFile() const {
+    ofstream outFile("notes.txt");
+    if (!outFile) {
+        cout << "\nError Opening File for Saving!" << endl;
+        return;
     }
 
-    void loadFromFile() {
-        ifstream inFile("notes.txt");
-        if (!inFile.is_open()) {
-            cout << "\nError Opening File!" << endl;
-            return;
+    for (const auto &note : notes) {
+        outFile << note.getTitle() << endl;
+        outFile << (note.getEncryptionStatus() ? encryptDecrypt(note.getContent()) : note.getContent()) << endl;
+        outFile << note.getCategory() << endl;
+        outFile << note.getTags() << endl;
+        outFile << note.getPriority() << endl;
+        outFile << note.getTimestamp() << endl;
+        outFile << note.getEncryptionStatus() << endl;
+
+        // Save the password only if the note is encrypted
+        if (note.getEncryptionStatus() && !note.getPassword().empty()) {
+            outFile << encryptDecrypt(note.getPassword()) << endl;
+        } else {
+            outFile << "\n";  // Leave password field empty for non-encrypted notes
         }
 
-        string title, content, category, tags, priority, timestamp;
-        bool encrypted = false;
-        while (getline(inFile, title)) {
-            if (title.empty()) continue;
-
-            getline(inFile, content);
-            getline(inFile, category);
-            getline(inFile, tags);
-            getline(inFile, priority);
-            getline(inFile, timestamp);
-            getline(inFile, content); 
-
-            Note note(title, content, category, tags, priority);
-            notes.push_back(note);
-        }
-
-        inFile.close();
-        cout << "\nNotes Loaded From Saved File!" << endl;
+        outFile << "---" << endl;  // Delimiter for each note
     }
+
+    outFile.close();
+    cout << "\nNotes Saved to File!" << endl;
+}
+
+
+void loadFromFile() {
+    ifstream inFile("notes.txt");
+    if (!inFile) {
+        cout << "\nError Opening File for Loading!" << endl;
+        return;
+    }
+
+    string title, content, category, tags, priority, timestamp, password, delimiter;
+    bool isEncrypted;
+
+    while (getline(inFile, title)) {
+        if (title.empty()) continue;
+
+        getline(inFile, content);
+        getline(inFile, category);
+        getline(inFile, tags);
+        getline(inFile, priority);
+        getline(inFile, timestamp);
+        inFile >> isEncrypted;
+        inFile.ignore();  // Skip newline after reading the boolean
+
+        if (isEncrypted) {
+            getline(inFile, password);  // Only read password if the note is encrypted
+            if (!password.empty()) {
+                password = encryptDecrypt(password);  // Decrypt the password
+            }
+        } else {
+            password = "";  // Ensure password is empty for non-encrypted notes
+        }
+
+        getline(inFile, delimiter);  // Skip delimiter line
+
+        Note note(title, content, category, tags, priority, isEncrypted, password);
+
+        // Only toggle encryption if the note is marked as encrypted in the file
+        if (isEncrypted) {
+            note.toggleEncryption();  // Restore encryption state
+        }
+
+        notes.push_back(note);
+    }
+
+    inFile.close();
+    cout << "\nNotes Loaded From Saved File!" << endl;
+}
+
+
+
+
 
     void addStickyNotes(string title, string content) {
         StickyNote newSticky(title, content);
@@ -383,9 +477,12 @@ cout << "\033[1;37;44m+---------------------------------------------------------
     cin.ignore();
 
     if (isEncrypted) {
-        cout << "Enter Password for Encryption : ";
-        getline(cin, pass);
-    }
+    cout << "Enter Password for Encryption: ";
+    getline(cin, pass);
+} else {
+    pass = ""; // Clear the password for non-encrypted notes
+}
+
 
     notebook.addNote(Note(title, content, category, tags, priority, isEncrypted, pass));
     break;
@@ -395,17 +492,16 @@ cout << "\033[1;37;44m+---------------------------------------------------------
             case 2:
                 notebook.displayAllNotes();
                 break;
-            case 3: {
-                int index;
-                string newContent;
-                cout << "\nEnter Note Index to Edit : ";
-                cin >> index;
-                cin.ignore();
-                cout << "Enter New Content : ";
-                getline(cin, newContent);
-                notebook.editNoteContent(index - 1, newContent);
-                break;
-            }
+                
+			 case 3: {
+    int index;
+    cout << "\nEnter Note Index to Edit : ";
+    cin >> index;
+    cin.ignore();  // Ignore the remaining newline
+    notebook.editNoteContent(index - 1);  // Pass the note index to edit
+    break;
+}
+
             case 4: {
                 int index;
                 cout << "\nEnter Note Index to Delete : ";
