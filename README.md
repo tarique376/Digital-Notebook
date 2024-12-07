@@ -34,9 +34,9 @@ Contributors
 
 We are proud to present this project as part of our team collaboration. This project is created and maintained by:
 
-    Muhammad Tarique Saand
-    Mokash Kumar
-    Naveed Narain
+    Muhammad Tarique Saand https://github.com/tarique376
+    Mokash Kumar https://github.com/mokashkumar1
+    Naveed Narain https://github.com/naveednarain
     Muhammad Azaan
 
 Future Improvements
